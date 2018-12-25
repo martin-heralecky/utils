@@ -35,8 +35,6 @@ function main {
             sleep 5
         fi
     done
-
-    echo "Download done."
 }
 
 # Loads options. If some required options are unavailable, prints help and exits the program.

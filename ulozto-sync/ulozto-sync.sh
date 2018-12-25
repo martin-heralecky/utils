@@ -12,20 +12,26 @@ function main {
     checkDependencies
 
     rm "$FILE_ORIGINAL" 2> /dev/null
+    log "Downloading. URL: $ULOZTO_URL"
     ulozto-download "$ULOZTO_URL" "$FILE_ORIGINAL" "$ULOZTO_USERNAME" "$ULOZTO_PASSWORD" || die "Downloading"
+    log "Download complete."
 
     rm "$FILE_ENCRYPTED" 2> /dev/null
+    log "Encrypting."
     gpg -e -r "$GPG_RECIPIENT" -o "$FILE_ENCRYPTED" "$FILE_ORIGINAL" || die "Encrypting"
+    log "Encryption complete."
     rm "$FILE_ORIGINAL" 2> /dev/null
 
     FILE_UPLOAD_NAME="`randString 8`"
 
+    log "Uploading. File name: $FILE_UPLOAD_NAME"
     gdrive upload -p "$REMOTE_DIRECTORY" --name "$FILE_UPLOAD_NAME" "$FILE_ENCRYPTED" --timeout 0 || die "Uploading"
+    log "Upload complete."
     rm "$FILE_ENCRYPTED" 2> /dev/null
 
     echo "$FILE_UPLOAD_NAME  $ULOZTO_URL" >> "$SIGNATURES_FILE"
 
-    echo "Sync done."
+    log "Synchronization complete."
 }
 
 # Loads options, including those from the configuration file. If program arguments are invalid or some required options
@@ -88,13 +94,24 @@ function randString {
     (cat /dev/urandom | base64 | tr -dc a-zA-Z0-9 | head -c "$1") 2> /dev/null
 }
 
+# Prints given message preceded by current time.
+# Params:
+#   $1  Message.
+function log {
+    local MESSAGE="`date +'[%d-%m-%Y %H:%M:%S]'` $1"
+    echo "$MESSAGE"
+
+    if ! isEmpty "$LOG_FILE"; then
+        echo "$MESSAGE" >> "$LOG_FILE"
+    fi
+}
+
 # Prints given error message and exits the program.
 # Params:
 #   $1  Message - reason for dying.
 function die {
-    echo "Oops! There was an error."
-    echo "Reason: $1"
-    exit 1
+    log "ERROR: $1"
+    exit
 }
 
 # Prints help to stdout.
@@ -130,6 +147,7 @@ function showHelp {
     echo -e "                        required"
     echo -e "    \e[1mSIGNATURES_FILE\e[0m     File containing signatures of the synced files."
     echo -e "                        required"
+    echo -e "    \e[1mLOG_FILE\e[0m            File for logging."
     echo -e
     echo -e "\e[1mDEPENDENCIES\e[0m"
     echo -e "    \e[1mulozto-download\e[0m, \e[1mgpg\e[0m, \e[1mgdrive\e[0m"
