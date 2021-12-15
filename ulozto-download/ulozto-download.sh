@@ -1,4 +1,4 @@
-# Copyright (c) 2018 Martin Heralecký <heralecky.martin@gmail.com>
+# Copyright (c) 2018-2021 Martin Heralecký <heralecky.martin@gmail.com>
 # License: MIT
 # Usage: ulozto-download
 
@@ -14,27 +14,32 @@ function main {
         curl -L --basic -u "$ULOZTO_USERNAME:$ULOZTO_PASSWORD" "$@"
     }
 
-    FILE_SIZE=`\
-        curl-auth -sI "$URL" | \
-        grep -iP 'content-length:\s*\d+' | \
-        sed -r 's/^[^0-9]*([0-9]+).*$/\1/' | \
-        tail -n 1`
+    FILE_SIZE="$(
+        curl-auth -sI "$URL" |
+        grep -iP 'content-length:\s*\d+' |
+        sed -r 's/^[^0-9]*([0-9]+).*$/\1/' |
+        tail -n 1
+    )"
 
+    echo "URL: $URL"
     echo "File size: ${FILE_SIZE}B"
 
     touch "$OUTPUT_FILE"
+    while [ "$(stat -c %s "$OUTPUT_FILE")" -lt "$(expr $FILE_SIZE - 1)" ]; do
+        echo "Remaining size: $(expr $FILE_SIZE - $(stat -c %s "$OUTPUT_FILE"))B"
 
-    while [[ `stat -c %s "$OUTPUT_FILE"` < $(($FILE_SIZE - 1)) ]]; do
         curl-auth \
-            --header "Range: Bytes=`stat -c %s "$OUTPUT_FILE"`-`echo $(($FILE_SIZE - 2))`" \
+            --header "Range: Bytes=$(stat -c %s "$OUTPUT_FILE")-$(expr $FILE_SIZE - 2)" \
             "$URL" \
         >> "$OUTPUT_FILE"
 
-        if [[ ! $? -eq 0 ]]; then
+        if [ ! $? -eq 0 ]; then
             echo "curl failed. Trying again in 5 seconds."
             sleep 5
         fi
     done
+
+    echo "Download completed."
 }
 
 # Loads options. If some required options are unavailable, prints help and exits the program.
